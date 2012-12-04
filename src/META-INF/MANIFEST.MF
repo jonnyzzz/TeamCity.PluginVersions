@@ -1,5 +1,3 @@
 Manifest-Version: 1.0
-Class-Path: annotations.jar
-Main-Class: jetbrains.buildServer.tools.Program
-
+Main-Class: jetbrains.buildServer.tools.PluginsChecker
 
