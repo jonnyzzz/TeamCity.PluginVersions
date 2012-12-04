@@ -1,0 +1,5 @@
+Checks all included plugins contains specified
+ - vendor
+ - version
+
+Usage: java -jar TeamCity.PluginsVersions.jar <baseDirectory> <actual version>
