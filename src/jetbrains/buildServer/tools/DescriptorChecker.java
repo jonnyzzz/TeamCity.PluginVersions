@@ -40,6 +40,26 @@ public class DescriptorChecker {
         throw new ValidationException(plugin, "incorrect plugin version: " + actualVersion);
       }
 
+
+      Text jetbrainsName = (Text) XPathFactory.instance().compile("/teamcity-plugin/info/vendor/name/text()").evaluateFirst(doc);
+      if (jetbrainsName == null) {
+        throw new ValidationException(plugin, "no plugin vendor");
+      } else {
+        String name = jetbrainsName.getTextTrim();
+        if (!name.contains("JetBrains")) {
+          throw new ValidationException(plugin, "incorrect plugin vendor: " + jetbrainsName.getTextTrim());
+        }
+      }
+
+      Text jetbrainsUrl = (Text) XPathFactory.instance().compile("/teamcity-plugin/info/vendor/url/text()").evaluateFirst(doc);
+      if (jetbrainsUrl == null) {
+        throw new ValidationException(plugin, "no plugin vendor url");
+      } else {
+        if (!jetbrainsUrl.getTextTrim().contains("http://www.jetbrains.com")) {
+          throw new ValidationException(plugin, "incorrect plugin vendor url: " + jetbrainsUrl.getTextTrim());
+        }
+      }
+
     } catch (IOException e) {
       throw new ValidationException(plugin, "failed to read teamcity-plugin.xml", e);
     } catch (JDOMException e) {
