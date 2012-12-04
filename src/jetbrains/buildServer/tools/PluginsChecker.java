@@ -16,14 +16,8 @@
 
 package jetbrains.buildServer.tools;
 
-import org.jdom2.Element;
-import org.jdom2.Text;
-import org.jdom2.xpath.XPathFactory;
-import org.jetbrains.annotations.NotNull;
-
-import java.io.*;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.io.File;
+import java.util.*;
 
 /**
  * Created 04.12.12 19:51
@@ -33,12 +27,16 @@ import java.util.zip.ZipFile;
 public class PluginsChecker {
 
 
+
   public static void main(String[] args) {
+    System.out.println("##teamcity[testSuiteStarted name='PluginVersions']");
     try {
       main2(args);
     } catch (Throwable t) {
       t.printStackTrace();
       System.exit(1);
+    } finally {
+      System.out.println("##teamcity[testSuiteFinished name='PluginVersions']");
     }
   }
 
@@ -61,102 +59,49 @@ public class PluginsChecker {
       System.exit(2);
     }
 
-    processUnpackedPlugins(pluginsPath);
-    processZipPlugins(pluginsPath);
+    final DescriptorChecker checker = new DescriptorChecker(version);
+    final PluginChecker[] zipChecker = {new ZipPluginChecker(checker), new UnpackedPluginChecker(checker)};
 
-    System.exit(0);
-  }
-
-  private static void processUnpackedPlugins(@NotNull final File zipHome) {
-    final File[] files = zipHome.listFiles(PLUGIN_FILTER);
+    final File[] files = pluginsPath.listFiles();
     if (files == null) {
-      throw new RuntimeException("Failed to list files under " + zipHome);
+      throw new RuntimeException("Failed to list files under " + pluginsPath);
     }
+    Arrays.sort(files);
 
+    final List<ValidationException> errors = new ArrayList<ValidationException>();
     for (File file : files) {
-      try {
-        processUnpackedPlugin(file);
-      } catch (ValidationException e) {
-        System.out.println(e.getMessage());
+      final String name = file.getName();
+
+      if (name.startsWith(".")) continue;
+      System.out.println("Scanning: " + name);
+      System.out.println("##teamcity[testStarted name='" + name + "' captureStandardOutput='true'] ");
+
+      for (PluginChecker ch : zipChecker) {
+        try {
+          ch.check(file);
+        } catch (ValidationException e) {
+          System.out.println("##teamcity[testFailed name='" + name + "' message='" + e.getOurMessage() + "' details='" + e.getMessage() + "']");
+          errors.add(e);
+        }
       }
-    }
-  }
-
-  private static void processUnpackedPlugin(File file) {
-    final File config = new File(file, "teamcity-plugin.xml");
-    if (!config.isFile()) {
-      throw new ValidationException(config.getName(), "teamcity-plugin.xml is not contained in .zip");
+      System.out.println("##teamcity[testFinished name='" + name + "'] ");
+      System.out.println();
+      System.out.flush();
     }
 
-    final ByteArrayOutputStream bos = new ByteArrayOutputStream();
-    FileInputStream bus = null;
-    try {
-      bus = new FileInputStream(config);
-      IOUtil.copyStreams(bus, bos);
-      IOUtil.close(bos);
-    } catch (Exception e) {
-      throw new ValidationException(config.getName(), "Failed to read teamcity-plugin.xml");
-    } finally {
-      IOUtil.close(bus);
-      IOUtil.close(bos);
+    if (errors.isEmpty()) {
+      System.exit(0);
+      return;
     }
 
-    validatePluginXml(file.getName(), new ByteArrayInputStream(bos.toByteArray()));
-  }
-
-  private static void processZipPlugins(@NotNull final File zipHome) {
-    final File[] files = zipHome.listFiles(ZIP_FILTER);
-    if (files == null) {
-      throw new RuntimeException("Failed to list files under " + zipHome);
+    System.out.println();
+    System.out.println("Errors:");
+    Collections.sort(errors, EXCEPTION_COMPARATOR);
+    for (ValidationException error : errors) {
+      System.out.println(error.getMessage());
     }
 
-    for (File file : files) {
-      try {
-        processZipPlugin(file);
-      } catch (ValidationException e) {
-        System.out.println(e.getMessage());
-      }
-    }
-  }
-
-
-  private static void processZipPlugin(@NotNull final File zip) {
-    final ByteArrayOutputStream bos = new ByteArrayOutputStream();
-    try {
-      final ZipFile file = new ZipFile(zip);
-      final ZipEntry ze = file.getEntry("teamcity-plugin.xml");
-      if (ze == null) {
-        throw new ValidationException(zip.getName(), "teamcity-plugin.xml is not contained in .zip");
-      }
-
-      IOUtil.copyStreams(file.getInputStream(ze), bos);
-      IOUtil.close(file);
-      IOUtil.close(bos);
-
-    } catch (Exception e) {
-      throw new ValidationException(zip.getName(), "Failed to unpack teamcity-plugin.xml from .zip");
-    }
-
-    validatePluginXml(zip.getName(), new ByteArrayInputStream(bos.toByteArray()));
-  }
-
-  private static void validatePluginXml(@NotNull String plugin, @NotNull InputStream is) {
-    try {
-      final Element doc = XmlUtil.parseDocument(is, false);
-
-      if (!"teamcity-plugin".equals(doc.getName()))
-        throw new ValidationException(plugin, "invalid root element");
-
-      Text version = (Text)XPathFactory.instance().compile("/teamcity-plugin/info/version/text()").evaluateFirst(doc);
-      if (version == null) {
-        throw new ValidationException(plugin, "version was not specified");
-      }
-
-      String actualVersion = version.getTextTrim();
-      System.out.println(plugin + " -> " + actualVersion);
-    } catch (Exception e) {
-      throw new ValidationException(plugin, "failed to read teamcity-plugin.xml", e);
-    }
+    System.exit(2);
   }
 
   private static void usage() {
@@ -165,17 +110,13 @@ public class PluginsChecker {
   }
 
 
-  public static final FileFilter ZIP_FILTER = new FileFilter() {
+  private static final Comparator<ValidationException> EXCEPTION_COMPARATOR = new Comparator<ValidationException>() {
     @Override
-    public boolean accept(File pathname) {
-      return pathname.getName().endsWith(".zip") && pathname.isFile();
+    public int compare(ValidationException o1, ValidationException o2) {
+      final String p1 = o1.getPlugin();
+      final String p2 = o2.getPlugin();
+      return p1.compareToIgnoreCase(p2);
     }
   };
 
-  public static final FileFilter PLUGIN_FILTER = new FileFilter() {
-    @Override
-    public boolean accept(File pathname) {
-      return pathname.isDirectory();
-    }
-  };
 }

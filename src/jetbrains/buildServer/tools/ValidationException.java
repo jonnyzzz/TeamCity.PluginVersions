@@ -46,7 +46,7 @@ public class ValidationException extends RuntimeException {
   }
 
   @NotNull
-  public String getMessage() {
+  public String getOurMessage() {
     return message;
   }
 }
