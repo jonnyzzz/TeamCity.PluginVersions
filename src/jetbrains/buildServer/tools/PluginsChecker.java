@@ -73,7 +73,7 @@ public class PluginsChecker {
       String name = file.getName();
 
       if (name.startsWith(".")) continue;
-      name = name.replaceAll("[^a-zA-Z]", "_");
+      name = name.replaceAll("[^a-zA-Z0-9]", "_");
       System.out.println("Scanning: " + name);
       System.out.println("##teamcity[testStarted name='" + name + "' captureStandardOutput='true'] ");
 
