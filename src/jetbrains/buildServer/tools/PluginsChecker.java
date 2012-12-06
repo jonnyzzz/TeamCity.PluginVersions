@@ -107,7 +107,7 @@ public class PluginsChecker {
 
   private static void usage() {
     System.out.println();
-    System.out.println("java -jar TeamCity.PluginVersions <teamcity directory> <version>");
+    System.out.println("java -jar TeamCity.PluginVersions.jar <teamcity directory> <version>");
   }
 
 
