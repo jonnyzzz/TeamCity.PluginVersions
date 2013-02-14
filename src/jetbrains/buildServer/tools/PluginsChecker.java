@@ -53,7 +53,7 @@ public class PluginsChecker {
 
     System.out.println("Checking plugin versions in " + home + " for version: " + version);
 
-    final File pluginsPath = new File(home, "webapps/ROOT/WEB-INF/plugins");
+    final File pluginsPath = home;
     if (!pluginsPath.isDirectory()) {
       System.err.println("Failed to find plugins path: " + pluginsPath);
       System.exit(2);
