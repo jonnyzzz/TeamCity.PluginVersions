@@ -70,10 +70,9 @@ public class PluginsChecker {
 
     final List<ValidationException> errors = new ArrayList<ValidationException>();
     for (File file : files) {
-      String name = file.getName();
+      if (file.isHidden()) continue;
 
-      if (name.startsWith(".")) continue;
-      name = name.replaceAll("[^a-zA-Z0-9]", "_");
+      String name = CheckerUtils.normalizeName(file.getName());
       System.out.println("Scanning: " + name);
       System.out.println("##teamcity[testStarted name='" + name + "' captureStandardOutput='true'] ");
 
