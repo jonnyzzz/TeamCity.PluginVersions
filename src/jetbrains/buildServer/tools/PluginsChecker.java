@@ -48,12 +48,11 @@ public class PluginsChecker {
       System.exit(1);
     }
 
-    final File home = new File(args[0]);
+    final File pluginsPath = new File(args[0]);
     final String version = args[1];
 
-    System.out.println("Checking plugin versions in " + home + " for version: " + version);
+    System.out.println("Checking plugin versions in " + pluginsPath + " for version: " + version);
 
-    final File pluginsPath = home;
     if (!pluginsPath.isDirectory()) {
       System.err.println("Failed to find plugins path: " + pluginsPath);
       System.exit(2);
